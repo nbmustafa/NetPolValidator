@@ -13,7 +13,6 @@ NetPolValidator is a Golang tool to validate Kubernetes NetworkPolicy ingress an
 - A rate-limiting feature to prevent the validator from being overwhelmed by too many requests in a short time, which could be helpful in large clusters or when integrated into a CI/CD pipeline.
 - Automated Policy Suggestion: a feature that suggests a NetworkPolicy based on observed traffic patterns. This could be useful for teams to automatically generate policies based on actual traffic flows, reducing manual policy creation.
 
-
 How to run:
 ``` 
 go run main.go --src-pod=my-pod --namespace=default --dest-ip=192.168.1.10 --port=8080 --direction=egress
@@ -31,3 +30,13 @@ go run main.go --src-pod=my-pod --namespace=default --dest-ip=192.168.1.10 --por
             - isPodMatch checks if a given pod matches the PodSelector in the NetworkPolicy
             - cidrMatch checks if an IP address matches a CIDR block in the NetworkPolicy
 
+
+
+### upcoming features and improvements
+- Notification System: Integrate with a notification system to alert stakeholders when policies are changed or traffic issues are detected.
+-  Enhanced Logging and Metrics: Add detailed metrics collection for traffic patterns, policy application, and validation results to monitor and analyze the effectiveness of policies.
+
+
+### Where this tool can be used:
+- Platform engineers and developers to validate their netpol during new implementation or for incident troubleshooting. 
+- CI/CD Integration: Integrate policy validation into CI/CD pipelines to automatically validate policies as part of the deployment process.
