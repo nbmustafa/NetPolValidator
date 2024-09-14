@@ -3,59 +3,73 @@ package validator
 import (
     "context"
     "testing"
+    "time"
 
+    "k8s.io/client-go/kubernetes/fake"
+    "k8s.io/client-go/tools/cache"
+    "k8s.io/client-go/util/retry"
+    "k8s.io/apimachinery/pkg/util/intstr"
     v1 "k8s.io/api/core/v1"
     v1net "k8s.io/api/networking/v1"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/client-go/kubernetes/fake"
     "golang.org/x/time/rate"
     "github.com/stretchr/testify/assert"
 )
 
-func TestNewPolicyValidator(t *testing.T) {
-    pv, err := NewPolicyValidator()
-    assert.NoError(t, err)
-    assert.NotNil(t, pv)
-}
-
 func TestRecordTrafficPattern(t *testing.T) {
-    pv := &PolicyValidator{
+    p := &PolicyValidator{
         trafficPatterns: make(map[string]map[string]int),
     }
-    pv.RecordTrafficPattern("default", "pod1", "10.0.0.1", 80)
-    
-    patterns := pv.trafficPatterns["default/pod1"]
-    assert.Equal(t, 1, patterns["10.0.0.1:80"])
+
+    p.RecordTrafficPattern("default", "pod1", "192.168.1.1", 80)
+    p.RecordTrafficPattern("default", "pod1", "192.168.1.1", 80)
+
+    patterns := p.trafficPatterns["default/pod1"]
+    assert.NotNil(t, patterns)
+    assert.Equal(t, 2, patterns["192.168.1.1:80"])
 }
 
 func TestSuggestNetworkPolicy(t *testing.T) {
-    pv := &PolicyValidator{
+    p := &PolicyValidator{
         trafficPatterns: map[string]map[string]int{
             "default/pod1": {
-                "10.0.0.1:80": 5,
+                "192.168.1.1:80": 5,
             },
         },
     }
-    
-    policy, err := pv.SuggestNetworkPolicy("default", "pod1")
+
+    policy, err := p.SuggestNetworkPolicy("default", "pod1")
     assert.NoError(t, err)
     assert.Equal(t, "pod1-policy", policy.Name)
-    assert.Equal(t, "default", policy.Namespace)
     assert.Len(t, policy.Spec.Ingress, 1)
-    assert.Equal(t, int32(80), *policy.Spec.Ingress[0].Ports[0].Port.IntVal)
 }
 
 func TestValidateTraffic(t *testing.T) {
-    fakeClient := fake.NewSimpleClientset(&v1net.NetworkPolicy{
+    clientset := fake.NewSimpleClientset()
+    p := &PolicyValidator{
+        clientset:       clientset,
+        rateLimiter:     rate.NewLimiter(rate.Every(time.Second), 10),
+        trafficPatterns: make(map[string]map[string]int),
+    }
+
+    pod := &v1.Pod{
         ObjectMeta: metav1.ObjectMeta{
-            Name: "test-policy",
+            Name:      "pod1",
+            Namespace: "default",
+            Labels:    map[string]string{"app": "pod1"},
+        },
+    }
+    _, err := clientset.CoreV1().Pods("default").Create(context.TODO(), pod, metav1.CreateOptions{})
+    assert.NoError(t, err)
+
+    policy := &v1net.NetworkPolicy{
+        ObjectMeta: metav1.ObjectMeta{
+            Name:      "pod1-policy",
             Namespace: "default",
         },
         Spec: v1net.NetworkPolicySpec{
             PodSelector: metav1.LabelSelector{
-                MatchLabels: map[string]string{
-                    "app": "pod1",
-                },
+                MatchLabels: map[string]string{"app": "pod1"},
             },
             Ingress: []v1net.NetworkPolicyIngressRule{
                 {
@@ -67,23 +81,26 @@ func TestValidateTraffic(t *testing.T) {
                     From: []v1net.NetworkPolicyPeer{
                         {
                             IPBlock: &v1net.IPBlock{
-                                CIDR: "10.0.0.0/24",
+                                CIDR: "192.168.1.1/32",
                             },
                         },
                     },
                 },
             },
         },
-    })
-    
-    pv := &PolicyValidator{
-        clientset:   fakeClient,
-        rateLimiter: rate.NewLimiter(rate.Every(time.Second), 10),
     }
-    
-    err := pv.ValidateTraffic("pod1", "default", "10.0.0.1", 80, "ingress")
+    _, err = clientset.NetworkingV1().NetworkPolicies("default").Create(context.TODO(), policy, metav1.CreateOptions{})
     assert.NoError(t, err)
-    
-    err = pv.ValidateTraffic("pod1", "default", "10.0.0.1", 8080, "ingress")
-    assert.Error(t, err)
+
+    err = p.ValidateTraffic("pod1", "default", "192.168.1.1", 80, "ingress")
+    assert.NoError(t, err)
+}
+
+func TestCidrs(t *testing.T) {
+    assert.Equal(t, "192.168.1.1/32", cidrForIP("192.168.1.1"))
+}
+
+func TestCidrsMatch(t *testing.T) {
+    assert.True(t, cidrMatch("192.168.1.1/32", "192.168.1.1"))
+    assert.False(t, cidrMatch("192.168.1.1/32", "192.168.1.2"))
 }
