@@ -30,7 +30,65 @@ go run main.go --src-pod=my-pod --namespace=default --dest-ip=192.168.1.10 --por
             - isPodMatch checks if a given pod matches the PodSelector in the NetworkPolicy
             - cidrMatch checks if an IP address matches a CIDR block in the NetworkPolicy
 
+#### Flow Chart Diagram:
+```
+Start
+  |
+  V
+Initialize PolicyValidator
+  |-- Load cluster config
+  |-- Create Kubernetes client
+  |-- Initialize rate limiter
+  |
+  V
+Record Traffic Pattern
+  |-- Input: Namespace, Pod Name, Dest IP, Port
+  |-- Record pattern in trafficPatterns
+  |
+  V
+Suggest Network Policy
+  |-- Input: Namespace, Pod Name
+  |-- Check if traffic patterns exist
+  |-- Create NetworkPolicy based on patterns
+  |-- Add Ingress rules
+  |-- Output: Suggested NetworkPolicy
+  |
+  V
+Validate Traffic
+  |-- Input: Source Pod, Source Namespace, Dest IP, Port, Direction
+  |-- Wait for rate limiter
+  |-- Fetch pod details
+  |-- Record traffic pattern
+  |-- Fetch NetworkPolicies for namespace
+  |-- For each NetworkPolicy:
+      |-- Check if pod matches policy
+      |-- Validate traffic based on direction
+          |-- Check Ingress rules
+          |-- Check Egress rules
+          |-- Validate both if direction is Both
+  |-- Output: Traffic validation result
+  |
+  V
+End
 
+Helper Functions
+  |-- getPod
+  |-- validateEgressAndIngress
+  |-- checkEgress
+  |-- checkIngress
+  |-- matchIPBlockOrNamespace
+  |-- matchPort
+  |-- isPodMatch
+  |-- cidrMatch
+
+```
+
+In the flowchart:
+- Initialization sets up the environment.
+- Record Traffic Pattern logs observed traffic data.
+- Suggest Network Policy uses recorded data to recommend a policy.
+- Validate Traffic checks if the traffic complies with existing policies.
+- Helper Functions support the core functionality with specific tasks.
 
 ### upcoming features and improvements
 - Notification System: Integrate with a notification system to alert stakeholders when policies are changed or traffic issues are detected.
