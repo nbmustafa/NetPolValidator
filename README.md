@@ -11,7 +11,7 @@ NetPolValidator is a Golang tool to validate Kubernetes NetworkPolicy ingress an
 - Ingress Traffic Validation: the tool can validate incoming traffic based on the NetworkPolicy ingress rules.
 - Error Handling: Errors such as invalid IPs, unmatched labels, or missing policies are logged and reported clearly.
 - A rate-limiting feature to prevent the validator from being overwhelmed by too many requests in a short time, which could be helpful in large clusters or when integrated into a CI/CD pipeline.
-
+- Automated Policy Suggestion: a feature that suggests a NetworkPolicy based on observed traffic patterns. This could be useful for teams to automatically generate policies based on actual traffic flows, reducing manual policy creation.
 
 
 How to run:
