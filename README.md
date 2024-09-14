@@ -11,7 +11,6 @@ Here’s an outline and implementation of key components:
 - NamespaceSelector: In both checkIngress and checkEgress, the NamespaceSelector is considered when determining if traffic is allowed based on policy rules.
 - Egress Traffic Validation: the tool can validate outgoing traffic based on the NetworkPolicy egress rules.
 - Ingress Traffic Validation: the tool can validate incoming traffic based on the NetworkPolicy ingress rules.
-NamespaceSelector: You can now filter traffic based on namespaceSelector for both ingress and egress traffic.
 - Error Handling: Errors such as invalid IPs, unmatched labels, or missing policies are logged and reported clearly.
 
 
