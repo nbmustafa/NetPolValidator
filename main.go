@@ -36,5 +36,5 @@ func main() {
         os.Exit(1)
     }
 
-    klog.Infof("Traffic from pod %s in namespace %s to IP %s on port %d is allowed.", *srcPod, *srcNamespace, *destIP, *port)
+    klog.Infof("Traffic for pod %s in namespace %s to IP %s on port %d is allowed.", *srcPod, *srcNamespace, *destIP, *port)
 }
