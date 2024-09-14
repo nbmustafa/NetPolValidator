@@ -71,14 +71,20 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
             case "ingress":
                 if err := p.checkIngress(policy, srcNamespace, pod, destIP, port); err == nil {
                     trafficAllowed = true
+                } else {
+                    klog.Errorf("Ingress traffic denied for pod %s due to: %v", pod.Name, err)
                 }
             case "egress":
                 if err := p.checkEgress(policy, destIP, port); err == nil {
                     trafficAllowed = true
+                } else {
+                    klog.Errorf("Egress traffic denied for pod %s due to: %v", pod.Name, err)
                 }
             case "both":
                 if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
                     trafficAllowed = true
+                } else {
+                    klog.Errorf("Traffic denied for pod %s due to: %v", pod.Name, err)
                 }
             default:
                 return fmt.Errorf("invalid traffic type specified: %s", direction)
@@ -192,3 +198,14 @@ func cidrMatch(cidr string, ip string) bool {
     parsedIP := net.ParseIP(ip)
     return cidrNet.Contains(parsedIP)
 }
+
+// // handleMasqueradingIP checks if IP masquerading is applied and adjusts the IP for validation.
+// func (p *PolicyValidator) handleMasqueradingIP(originalIP string, rewrittenIPs []string) string {
+//     for _, ip := range rewrittenIPs {
+//         if ip == originalIP {
+//             klog.Infof("Masqueraded IP found: %s", ip)
+//             return ip
+//         }
+//     }
+//     return originalIP
+// }
