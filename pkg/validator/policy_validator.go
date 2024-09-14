@@ -49,28 +49,38 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
         return fmt.Errorf("failed to list network policies in namespace %s: %v", srcNamespace, err)
     }
 
+    var trafficAllowed bool
+
     for _, policy := range policies.Items {
         if isPodMatch(pod, policy.Spec.PodSelector) {
             klog.Infof("Pod %s matches NetworkPolicy %s", pod.Name, policy.Name)
 
             // Validate based on direction
             switch direction {
-            case Ingress:
+            case "ingress":
                 if err := p.checkIngress(policy, srcNamespace, pod, destIP, port); err == nil {
-                    return nil
+                    trafficAllowed = true
                 }
-            case Egress:
+            case "egress":
                 if err := p.checkEgress(policy, destIP, port); err == nil {
-                    return nil
+                    trafficAllowed = true
                 }
-            case Both:
+            case "both":
                 if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
-                    return nil
+                    trafficAllowed = true
                 }
             default:
                 return fmt.Errorf("invalid traffic type specified: %s", direction)
             }
+
+            if trafficAllowed {
+                break
+            }
         }
+    }
+
+    if !trafficAllowed {
+        klog.Errorf("No policy allows %s traffic for pod %s to IP %s on port %d", direction, srcPod, destIP, port)
     }
 
     return fmt.Errorf("no policy allows %s traffic for pod %s to IP %s on port %d", direction, srcPod, destIP, port)
@@ -97,6 +107,7 @@ func (p *PolicyValidator) validateEgressAndIngress(policy v1net.NetworkPolicy, s
         return nil
     }
 
+    klog.Errorf("Neither ingress nor egress rule matched for pod %s", pod.Name)
     return fmt.Errorf("neither ingress nor egress rule matched")
 }
 
@@ -104,9 +115,11 @@ func (p *PolicyValidator) validateEgressAndIngress(policy v1net.NetworkPolicy, s
 func (p *PolicyValidator) checkEgress(policy v1net.NetworkPolicy, destIP string, port int) error {
     for _, egress := range policy.Spec.Egress {
         if p.matchIPBlockOrNamespace(egress.To, destIP) && p.matchPort(egress.Ports, port) {
+            klog.Infof("Egress traffic allowed to %s on port %d", destIP, port)
             return nil
         }
     }
+    klog.Errorf("Egress rule does not match destination %s or port %d", destIP, port)
     return fmt.Errorf("egress rule does not match destination %s or port %d", destIP, port)
 }
 
@@ -114,9 +127,11 @@ func (p *PolicyValidator) checkEgress(policy v1net.NetworkPolicy, destIP string,
 func (p *PolicyValidator) checkIngress(policy v1net.NetworkPolicy, srcNamespace string, pod *v1.Pod, destIP string, port int) error {
     for _, ingress := range policy.Spec.Ingress {
         if p.matchIPBlockOrNamespace(ingress.From, destIP) && p.matchPort(ingress.Ports, port) {
+            klog.Infof("Ingress traffic allowed from %s on port %d", destIP, port)
             return nil
         }
     }
+    klog.Errorf("Ingress rule does not match source %s or port %d", destIP, port)
     return fmt.Errorf("ingress rule does not match source %s or port %d", destIP, port)
 }
 
