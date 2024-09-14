@@ -8,7 +8,10 @@ Here’s an outline and implementation of key components:
 ### Features Breakdown
 - Label Matching: The isPodMatch function checks if the source pod matches the PodSelector in a NetworkPolicy, ensuring robust label matching.
 - CIDR Matching: The cidrMatch function validates whether a destination IP falls within a CIDR range defined in the NetworkPolicy.
-- NamespaceSelector: This example assumes ingress/egress rules might involve namespace selectors. You can expand on it based on specific requirements.
+- NamespaceSelector: In both checkIngress and checkEgress, the NamespaceSelector is considered when determining if traffic is allowed based on policy rules.
+- Egress Traffic Validation: the tool can validate outgoing traffic based on the NetworkPolicy egress rules.
+- Ingress Traffic Validation: the tool can validate incoming traffic based on the NetworkPolicy ingress rules.
+NamespaceSelector: You can now filter traffic based on namespaceSelector for both ingress and egress traffic.
 - Error Handling: Errors such as invalid IPs, unmatched labels, or missing policies are logged and reported clearly.
 
 
