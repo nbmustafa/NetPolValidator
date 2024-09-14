@@ -13,15 +13,6 @@ import (
     "k8s.io/klog/v2"
 )
 
-// direction represents the type of traffic being validated.
-type direction string
-
-const (
-    Ingress direction = "ingress"
-    Egress  direction = "egress"
-    Both    direction = "both"
-)
-
 // PolicyValidator handles the validation of NetworkPolicies.
 type PolicyValidator struct {
     clientset *kubernetes.Clientset
@@ -44,7 +35,7 @@ func NewPolicyValidator() (*PolicyValidator, error) {
 
 // ValidateTraffic checks whether traffic is allowed based on NetworkPolicies.
 // The direction parameter specifies whether to validate "ingress", "egress", or "both".
-func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, port int, direction direction) error {
+func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, port int, direction string) error {
     pod, err := p.getPod(srcNamespace, srcPod)
     if err != nil {
         return err

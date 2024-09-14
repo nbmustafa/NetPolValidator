@@ -9,12 +9,22 @@ import (
     "k8s.io/klog/v2"
 )
 
+// direction represents the type of traffic being validated.
+type direction string
+
+const (
+    Ingress direction = "ingress"
+    Egress  direction = "egress"
+    Both    direction = "both"
+)
+
 func main() {
     // Command-line flags
     srcPod := flag.String("src-pod", "", "The source pod name")
     srcNamespace := flag.String("src-namespace", "default", "The source pod's namespace")
     destIP := flag.String("dest-ip", "", "The destination IP or CIDR")
     port := flag.Int("port", 0, "The destination port")
+    trafficDirection := flag.String("direction", "ingress", "The traffic direction: ingress, egress, or both")
     flag.Parse()
 
     // Validate input
@@ -30,7 +40,7 @@ func main() {
     }
 
     // Perform the validation
-    err = validator.ValidateTraffic(*srcPod, *srcNamespace, *destIP, *port)
+    err = validator.ValidateTraffic(*srcPod, *srcNamespace, *destIP, *port, *trafficDirection)
     if err != nil {
         klog.Errorf("Traffic validation failed: %v", err)
         os.Exit(1)
