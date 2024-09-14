@@ -4,6 +4,7 @@ import (
     "context"
     "fmt"
     "net"
+    "time"
 
     v1 "k8s.io/api/core/v1"
     v1net "k8s.io/api/networking/v1"
@@ -11,11 +12,13 @@ import (
     "k8s.io/client-go/kubernetes"
     "k8s.io/client-go/rest"
     "k8s.io/klog/v2"
+    "golang.org/x/time/rate"
 )
 
 // PolicyValidator handles the validation of NetworkPolicies.
 type PolicyValidator struct {
-    clientset *kubernetes.Clientset
+    clientset   *kubernetes.Clientset
+    rateLimiter *rate.Limiter
 }
 
 // NewPolicyValidator initializes a new PolicyValidator instance.
@@ -30,12 +33,20 @@ func NewPolicyValidator() (*PolicyValidator, error) {
         return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
     }
 
-    return &PolicyValidator{clientset: clientset}, nil
+    // Initialize rate limiter to allow 10 requests per second
+    limiter := rate.NewLimiter(rate.Every(time.Second), 10)
+
+    return &PolicyValidator{clientset: clientset, rateLimiter: limiter}, nil
 }
 
 // ValidateTraffic checks whether traffic is allowed based on NetworkPolicies.
 // The direction parameter specifies whether to validate "ingress", "egress", or "both".
 func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, port int, direction string) error {
+    // Wait for the rate limiter
+    if err := p.rateLimiter.Wait(context.TODO()); err != nil {
+        return fmt.Errorf("rate limiter error: %v", err)
+    }
+
     pod, err := p.getPod(srcNamespace, srcPod)
     if err != nil {
         return err
