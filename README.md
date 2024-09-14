@@ -1,9 +1,7 @@
 # NetPolValidator
 A Golang tool to simulates and validates Kubernetes NetworkPolicy connectivity
 
-NetPolValidator is a Golang tool to validate Kubernetes NetworkPolicy ingress and egress traffic can be structured as follows. This tool will allow users to specify source pods, namespaces, destination IPs or CIDR ranges, and port numbers. It will feature robust label matching for pods, CIDR support, namespace selectors, and proper error handling/reporting.
-
-Here’s an outline and implementation of key components:
+NetPolValidator is a Golang tool to validate Kubernetes NetworkPolicy ingress and egress traffic, the tool can validate both ingress and egress traffic with respect to Kubernetes NetworkPolicies, including label matching, CIDR checks, and namespace selectors. This tool will allow users to specify source pods, namespaces, destination IPs or CIDR ranges, and port numbers.
 
 ### Features Breakdown
 - Label Matching: The isPodMatch function checks if the source pod matches the PodSelector in a NetworkPolicy, ensuring robust label matching.
