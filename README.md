@@ -14,7 +14,10 @@ NetPolValidator is a Golang tool to validate Kubernetes NetworkPolicy ingress an
 
 How to run:
 ``` 
-go run main.go --src-pod=my-pod --src-namespace=default --dest-ip=192.168.1.10 --port=8080
+go run main.go --src-pod=my-pod --src-namespace=default --dest-ip=192.168.1.10 --port=8080 direction egress
+go run main.go --src-pod=my-pod --src-namespace=default --dest-ip=192.168.1.10 --port=8080 direction ingress
+go run main.go --src-pod=my-pod --src-namespace=default --dest-ip=192.168.1.10 --port=8080 direction both
+
 ```
 
 ### How the tool works:

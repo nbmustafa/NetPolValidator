@@ -13,6 +13,15 @@ import (
     "k8s.io/klog/v2"
 )
 
+// direction represents the type of traffic being validated.
+type direction string
+
+const (
+    Ingress direction = "ingress"
+    Egress  direction = "egress"
+    Both    direction = "both"
+)
+
 // PolicyValidator handles the validation of NetworkPolicies.
 type PolicyValidator struct {
     clientset *kubernetes.Clientset
@@ -34,13 +43,14 @@ func NewPolicyValidator() (*PolicyValidator, error) {
 }
 
 // ValidateTraffic checks whether traffic is allowed based on NetworkPolicies.
-func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, port int) error {
+// The direction parameter specifies whether to validate "ingress", "egress", or "both".
+func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, port int, direction direction) error {
     pod, err := p.getPod(srcNamespace, srcPod)
     if err != nil {
         return err
     }
 
-    klog.Infof("Validating traffic for pod %s in namespace %s", srcPod, srcNamespace)
+    klog.Infof("Validating %s traffic for pod %s in namespace %s", direction, srcPod, srcNamespace)
 
     // Fetch NetworkPolicies for the namespace
     policies, err := p.clientset.NetworkingV1().NetworkPolicies(srcNamespace).List(context.TODO(), metav1.ListOptions{})
@@ -52,14 +62,27 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
         if isPodMatch(pod, policy.Spec.PodSelector) {
             klog.Infof("Pod %s matches NetworkPolicy %s", pod.Name, policy.Name)
 
-            // Check Egress and Ingress Rules
-            if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
-                return nil
+            // Validate based on direction
+            switch direction {
+            case Ingress:
+                if err := p.checkIngress(policy, srcNamespace, pod, destIP, port); err == nil {
+                    return nil
+                }
+            case Egress:
+                if err := p.checkEgress(policy, destIP, port); err == nil {
+                    return nil
+                }
+            case Both:
+                if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
+                    return nil
+                }
+            default:
+                return fmt.Errorf("invalid traffic type specified: %s", direction)
             }
         }
     }
 
-    return fmt.Errorf("no policy allows ingress or egress traffic for pod %s to IP %s on port %d", srcPod, destIP, port)
+    return fmt.Errorf("no policy allows %s traffic for pod %s to IP %s on port %d", direction, srcPod, destIP, port)
 }
 
 // getPod fetches a Pod object based on namespace and name.
