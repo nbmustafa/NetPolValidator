@@ -21,7 +21,7 @@ const (
 func main() {
     // Command-line flags
     srcPod := flag.String("src-pod", "", "The source pod name")
-    srcNamespace := flag.String("src-namespace", "default", "The source pod's namespace")
+    srcNamespace := flag.String("namespace", "default", "The source pod's namespace")
     destIP := flag.String("dest-ip", "", "The destination IP or CIDR")
     port := flag.Int("port", 0, "The destination port")
     trafficDirection := flag.String("direction", "ingress", "The traffic direction: ingress, egress, or both")
