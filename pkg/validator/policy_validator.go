@@ -6,7 +6,7 @@ import (
     "net"
 
     v1 "k8s.io/api/core/v1"
-    v1beta1 "k8s.io/api/networking/v1"
+    v1net "k8s.io/api/networking/v1"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
     "k8s.io/client-go/kubernetes"
     "k8s.io/client-go/rest"
@@ -52,15 +52,8 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
         if isPodMatch(pod, policy.Spec.PodSelector) {
             klog.Infof("Pod %s matches NetworkPolicy %s", pod.Name, policy.Name)
 
-            // Validate Egress Rules
-            if err := p.checkEgress(policy, destIP, port); err == nil {
-                klog.Infof("Egress traffic from pod %s to %s on port %d is allowed", srcPod, destIP, port)
-                return nil
-            }
-
-            // Validate Ingress Rules
-            if err := p.checkIngress(policy, srcNamespace, srcPod, destIP, port); err == nil {
-                klog.Infof("Ingress traffic to pod %s from IP %s on port %d is allowed", srcPod, destIP, port)
+            // Check Egress and Ingress Rules
+            if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
                 return nil
             }
         }
@@ -78,8 +71,23 @@ func (p *PolicyValidator) getPod(namespace, podName string) (*v1.Pod, error) {
     return pod, nil
 }
 
-// checkEgress checks if the traffic matches any of the egress rules in the NetworkPolicy.
-func (p *PolicyValidator) checkEgress(policy v1beta1.NetworkPolicy, destIP string, port int) error {
+// validateEgressAndIngress checks both egress and ingress rules.
+func (p *PolicyValidator) validateEgressAndIngress(policy v1net.NetworkPolicy, srcNamespace string, pod *v1.Pod, destIP string, port int) error {
+    if err := p.checkEgress(policy, destIP, port); err == nil {
+        klog.Infof("Egress traffic allowed for pod %s to %s on port %d", pod.Name, destIP, port)
+        return nil
+    }
+
+    if err := p.checkIngress(policy, srcNamespace, pod, destIP, port); err == nil {
+        klog.Infof("Ingress traffic allowed for pod %s from %s on port %d", pod.Name, destIP, port)
+        return nil
+    }
+
+    return fmt.Errorf("neither ingress nor egress rule matched")
+}
+
+// checkEgress checks if the traffic matches any egress rules.
+func (p *PolicyValidator) checkEgress(policy v1net.NetworkPolicy, destIP string, port int) error {
     for _, egress := range policy.Spec.Egress {
         if p.matchIPBlockOrNamespace(egress.To, destIP) && p.matchPort(egress.Ports, port) {
             return nil
@@ -88,8 +96,8 @@ func (p *PolicyValidator) checkEgress(policy v1beta1.NetworkPolicy, destIP strin
     return fmt.Errorf("egress rule does not match destination %s or port %d", destIP, port)
 }
 
-// checkIngress checks if the traffic matches any of the ingress rules in the NetworkPolicy.
-func (p *PolicyValidator) checkIngress(policy v1beta1.NetworkPolicy, srcNamespace, srcPod, destIP string, port int) error {
+// checkIngress checks if the traffic matches any ingress rules.
+func (p *PolicyValidator) checkIngress(policy v1net.NetworkPolicy, srcNamespace string, pod *v1.Pod, destIP string, port int) error {
     for _, ingress := range policy.Spec.Ingress {
         if p.matchIPBlockOrNamespace(ingress.From, destIP) && p.matchPort(ingress.Ports, port) {
             return nil
@@ -99,7 +107,7 @@ func (p *PolicyValidator) checkIngress(policy v1beta1.NetworkPolicy, srcNamespac
 }
 
 // matchIPBlockOrNamespace matches traffic based on IPBlock or NamespaceSelector.
-func (p *PolicyValidator) matchIPBlockOrNamespace(peers []v1beta1.NetworkPolicyPeer, ip string) bool {
+func (p *PolicyValidator) matchIPBlockOrNamespace(peers []v1net.NetworkPolicyPeer, ip string) bool {
     for _, peer := range peers {
         if peer.IPBlock != nil && cidrMatch(peer.IPBlock.CIDR, ip) {
             klog.Infof("Traffic matches CIDR %s", peer.IPBlock.CIDR)
@@ -115,7 +123,7 @@ func (p *PolicyValidator) matchIPBlockOrNamespace(peers []v1beta1.NetworkPolicyP
 }
 
 // matchPort checks if the traffic matches the port rules.
-func (p *PolicyValidator) matchPort(ports []v1beta1.NetworkPolicyPort, port int) bool {
+func (p *PolicyValidator) matchPort(ports []v1net.NetworkPolicyPort, port int) bool {
     for _, portRule := range ports {
         if portRule.Port != nil && int(*portRule.Port.IntVal) == port {
             return true
