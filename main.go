@@ -5,7 +5,7 @@ import (
     "fmt"
     "os"
 
-    "k8s-netpolicy-validator/pkg/validator"
+    "pkg/validator"
     "k8s.io/klog/v2"
 )
 
