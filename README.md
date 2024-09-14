@@ -17,3 +17,12 @@ How to run:
 go run main.go --src-pod=my-pod --src-namespace=default --dest-ip=192.168.1.10 --port=8080
 ```
 
+### How the tool works:
+1- The tool first gets the all netpolicies in the specified namespace
+2- Then it checks each policy for both ingress and egress rules
+    - checks if Egress traffic is allowed or not
+    - checks if ingress traffic is allowed or not
+        - how does above two steps are checked:
+            - isPodMatch checks if a given pod matches the PodSelector in the NetworkPolicy
+            - cidrMatch checks if an IP address matches a CIDR block in the NetworkPolicy
+
