@@ -5,7 +5,7 @@ import (
     "fmt"
     "os"
 
-    "NetPolValidator/cmd"
+    "NetPolValidator/pkg"
 )
 
 // direction represents the type of traffic being validated.
