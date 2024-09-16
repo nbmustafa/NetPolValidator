@@ -13,13 +13,16 @@ import (
     "k8s.io/client-go/rest"
     "k8s.io/klog/v2"
     "golang.org/x/time/rate"
+    "strings"
+    "strconv"
+    "k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // PolicyValidator handles the validation of NetworkPolicies.
 type PolicyValidator struct {
     clientset       *kubernetes.Clientset
     rateLimiter     *rate.Limiter
-    trafficPatterns map[string]map[string]int // Map of namespace/pod to destination IP and port counts
+    trafficPatterns map[string]map[string]int // Map of namespace/pod to destination IP and port
 }
 
 // NewPolicyValidator initializes a new PolicyValidator instance.
