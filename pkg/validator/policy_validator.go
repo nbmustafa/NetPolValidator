@@ -16,6 +16,8 @@ import (
     "strings"
     "strconv"
     "k8s.io/apimachinery/pkg/util/intstr"
+    "k8s.io/client-go/tools/clientcmd"
+
 )
 
 // PolicyValidator handles the validation of NetworkPolicies.
@@ -27,9 +29,12 @@ type PolicyValidator struct {
 
 // NewPolicyValidator initializes a new PolicyValidator instance.
 func NewPolicyValidator() (*PolicyValidator, error) {
-    config, err := rest.InClusterConfig()
+    // Use the KUBECONFIG environment variable or default location
+    kubeconfig := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
+    
+    config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
     if err != nil {
-        return nil, fmt.Errorf("failed to load cluster config: %v", err)
+        return nil, fmt.Errorf("failed to load kubeconfig: %v", err)
     }
 
     clientset, err := kubernetes.NewForConfig(config)

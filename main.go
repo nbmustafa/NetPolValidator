@@ -5,8 +5,7 @@ import (
     "fmt"
     "os"
 
-    "netpolvalidator/pkg/validator"
-    "k8s.io/klog/v2"
+    "NetPolValidator/pkg/validator"
 )
 
 // direction represents the type of traffic being validated.
