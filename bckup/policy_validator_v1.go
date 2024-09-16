@@ -324,13 +324,3 @@ func cidrMatch(cidr string, ip string) bool {
     return cidrNet.Contains(parsedIP)
 }
 
-// // handleMasqueradingIP checks if IP masquerading is applied and adjusts the IP for validation.
-// func (p *PolicyValidator) handleMasqueradingIP(originalIP string, rewrittenIPs []string) string {
-//     for _, ip := range rewrittenIPs {
-//         if ip == originalIP {
-//             klog.Infof("Masqueraded IP found: %s", ip)
-//             return ip
-//         }
-//     }
-//     return originalIP
-// }
