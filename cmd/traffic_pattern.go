@@ -75,3 +75,8 @@ func (p *PolicyValidator) SuggestNetworkPolicy(namespace, podName string) (*v1ne
 
     return nil, fmt.Errorf("no traffic patterns found for pod %s in namespace %s", podName, namespace)
 }
+
+// cidrForIP generates a CIDR block for a given IP address.
+func cidrForIP(ip string) string {
+    return fmt.Sprintf("%s/32", ip)
+}
