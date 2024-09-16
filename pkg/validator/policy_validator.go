@@ -125,7 +125,7 @@ func cidrForIP(ip string) string {
 // The direction parameter specifies whether to validate "ingress", "egress", or "both".
 func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, port int, direction string) error {
     // Wait for the rate limiter
-    if err := p.rateLimiter.Wait(context.TODO()); err != nil {
+    if err := p.rateLimiter.Wait(context.Background()); err != nil {
         return fmt.Errorf("rate limiter error: %v", err)
     }
 
