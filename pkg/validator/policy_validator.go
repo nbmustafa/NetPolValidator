@@ -145,9 +145,9 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
         return fmt.Errorf("failed to list network policies in namespace %s: %v", srcNamespace, err)
     }
 
-    // Case 1: No NetworkPolicies present, traffic is allowed
+    // Traffic is allowed if there are no NetworkPolicies defined
     if len(policies.Items) == 0 {
-        klog.Infof("No NetworkPolicy found for namespace %s, traffic is allowed", srcNamespace)
+        klog.Infof("No NetworkPolicy found for namespace %s. Traffic is allowed.", srcNamespace)
         return nil
     }
 
@@ -157,42 +157,40 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
         if isPodMatch(pod, policy.Spec.PodSelector) {
             klog.Infof("Pod %s matches NetworkPolicy %s", pod.Name, policy.Name)
 
-            // Validate based on direction
-            switch direction {
-            case "ingress":
-                // Case 2: If Ingress is empty, allow ingress traffic
-                if len(policy.Spec.Ingress) == 0 {
-                    klog.Infof("NetworkPolicy %s has no ingress rules, ingress traffic is allowed", policy.Name)
-                    return nil
+            // Check if egress or ingress sections are empty (traffic allowed if empty)
+            if isEgressEmpty(policy) && (direction == "egress" || direction == "both") {
+                klog.Infof("Egress section in policy %s is empty. Egress traffic is allowed.", policy.Name)
+                trafficAllowed = true
+            }
+            if isIngressEmpty(policy) && (direction == "ingress" || direction == "both") {
+                klog.Infof("Ingress section in policy %s is empty. Ingress traffic is allowed.", policy.Name)
+                trafficAllowed = true
+            }
+
+            // Validate based on direction if sections are not empty
+            if !trafficAllowed {
+                switch direction {
+                case "ingress":
+                    if err := p.checkIngress(policy, srcNamespace, pod, destIP, port); err == nil {
+                        trafficAllowed = true
+                    } else {
+                        klog.Errorf("Ingress traffic denied for pod %s due to: %v", pod.Name, err)
+                    }
+                case "egress":
+                    if err := p.checkEgress(policy, destIP, port); err == nil {
+                        trafficAllowed = true
+                    } else {
+                        klog.Errorf("Egress traffic denied for pod %s due to: %v", pod.Name, err)
+                    }
+                case "both":
+                    if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
+                        trafficAllowed = true
+                    } else {
+                        klog.Errorf("Traffic denied for pod %s due to: %v", pod.Name, err)
+                    }
+                default:
+                    return fmt.Errorf("invalid traffic type specified: %s", direction)
                 }
-                if err := p.checkIngress(policy, srcNamespace, pod, destIP, port); err == nil {
-                    trafficAllowed = true
-                } else {
-                    klog.Errorf("Ingress traffic denied for pod %s due to: %v", pod.Name, err)
-                }
-            case "egress":
-                // Case 3: If Egress is empty, allow egress traffic
-                if len(policy.Spec.Egress) == 0 {
-                    klog.Infof("NetworkPolicy %s has no egress rules, egress traffic is allowed", policy.Name)
-                    return nil
-                }
-                if err := p.checkEgress(policy, destIP, port); err == nil {
-                    trafficAllowed = true
-                } else {
-                    klog.Errorf("Egress traffic denied for pod %s due to: %v", pod.Name, err)
-                }
-            case "both":
-                if len(policy.Spec.Ingress) == 0 && len(policy.Spec.Egress) == 0 {
-                    klog.Infof("NetworkPolicy %s has no ingress or egress rules, all traffic is allowed", policy.Name)
-                    return nil
-                }
-                if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
-                    trafficAllowed = true
-                } else {
-                    klog.Errorf("Traffic denied for pod %s due to: %v", pod.Name, err)
-                }
-            default:
-                return fmt.Errorf("invalid traffic type specified: %s", direction)
             }
 
             if trafficAllowed {
@@ -203,10 +201,22 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
 
     if !trafficAllowed {
         klog.Errorf("No policy allows %s traffic for pod %s to IP %s on port %d", direction, srcPod, destIP, port)
+        return fmt.Errorf("no policy allows %s traffic for pod %s to IP %s on port %d", direction, srcPod, destIP, port)
     }
 
-    return fmt.Errorf("no policy allows %s traffic for pod %s to IP %s on port %d", direction, srcPod, destIP, port)
+    return nil
 }
+
+// isEgressEmpty checks if the egress section of a policy is empty.
+func isEgressEmpty(policy v1net.NetworkPolicy) bool {
+    return len(policy.Spec.Egress) == 0 || (len(policy.Spec.Egress) == 1 && len(policy.Spec.Egress[0].To) == 0 && len(policy.Spec.Egress[0].Ports) == 0)
+}
+
+// isIngressEmpty checks if the ingress section of a policy is empty.
+func isIngressEmpty(policy v1net.NetworkPolicy) bool {
+    return len(policy.Spec.Ingress) == 0 || (len(policy.Spec.Ingress) == 1 && len(policy.Spec.Ingress[0].From) == 0 && len(policy.Spec.Ingress[0].Ports) == 0)
+}
+
 
 // getPod fetches a Pod object based on namespace and name.
 func (p *PolicyValidator) getPod(namespace, podName string) (*v1.Pod, error) {
