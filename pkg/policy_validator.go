@@ -5,6 +5,8 @@ import (
     "fmt"
     "net"
     "time"
+    "strings"
+    "strconv"
 
     v1 "k8s.io/api/core/v1"
     v1net "k8s.io/api/networking/v1"
@@ -13,23 +15,19 @@ import (
     "k8s.io/client-go/rest"
     "k8s.io/klog/v2"
     "golang.org/x/time/rate"
-    "strings"
-    "strconv"
     "k8s.io/apimachinery/pkg/util/intstr"
     "k8s.io/client-go/tools/clientcmd"
-
 )
 
 // PolicyValidator handles the validation of NetworkPolicies.
 type PolicyValidator struct {
     clientset       *kubernetes.Clientset
     rateLimiter     *rate.Limiter
-    trafficPatterns map[string]map[string]int // Map of namespace/pod to destination IP and port
+    trafficPatterns make(map[string]map[string]int),
 }
 
 // NewPolicyValidator initializes a new PolicyValidator instance.
 func NewPolicyValidator() (*PolicyValidator, error) {
-    // Use the KUBECONFIG environment variable or default location
     kubeconfig := clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
     
     config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -42,24 +40,53 @@ func NewPolicyValidator() (*PolicyValidator, error) {
         return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
     }
 
-    // Initialize rate limiter to allow 10 requests per second
     limiter := rate.NewLimiter(rate.Every(time.Second), 10)
 
     return &PolicyValidator{
         clientset:       clientset,
         rateLimiter:     limiter,
-        trafficPatterns: make(map[string]map[string]int),
     }, nil
 }
 
-// RecordTrafficPattern logs observed traffic patterns.
-func (p *PolicyValidator) RecordTrafficPattern(namespace, podName, destIP string, port int) {
-    key := fmt.Sprintf("%s/%s", namespace, podName)
-    if _, exists := p.trafficPatterns[key]; !exists {
-        p.trafficPatterns[key] = make(map[string]int)
+// ListNetworkPolicies lists all network policies based on podSelector, namespaceSelector, or policies that apply to the entire namespace.
+func (p *PolicyValidator) ListNetworkPolicies(namespace string, podLabels map[string]string) ([]v1net.NetworkPolicy, error) {
+    // Wait for the rate limiter
+    if err := p.rateLimiter.Wait(context.Background()); err != nil {
+        return nil, fmt.Errorf("rate limiter error: %v", err)
     }
-    ipPortKey := fmt.Sprintf("%s:%d", destIP, port)
-    p.trafficPatterns[key][ipPortKey]++
+
+    policies, err := p.clientset.NetworkingV1().NetworkPolicies(namespace).List(context.TODO(), metav1.ListOptions{})
+    if err != nil {
+        return nil, fmt.Errorf("failed to list network policies in namespace %s: %v", namespace, err)
+    }
+
+    var matchingPolicies []v1net.NetworkPolicy
+    for _, policy := range policies.Items {
+        // Match policies that apply to entire namespace (empty podSelector)
+        if len(policy.Spec.PodSelector.MatchLabels) == 0 {
+            klog.Infof("Policy %s applies to the entire namespace %s", policy.Name, namespace)
+            matchingPolicies = append(matchingPolicies, policy)
+            continue
+        }
+
+        // Match policies that apply to specific pods based on podSelector
+        if p.isPodSelectorMatch(podLabels, policy.Spec.PodSelector) {
+            klog.Infof("Policy %s matches pod selector for labels %v in namespace %s", policy.Name, podLabels, namespace)
+            matchingPolicies = append(matchingPolicies, policy)
+        }
+    }
+
+    return matchingPolicies, nil
+}
+
+// isPodSelectorMatch checks if pod labels match the podSelector in the NetworkPolicy.
+func (p *PolicyValidator) isPodSelectorMatch(podLabels map[string]string, selector metav1.LabelSelector) bool {
+    for key, value := range selector.MatchLabels {
+        if podLabels[key] != value {
+            return false
+        }
+    }
+    return true
 }
 
 // SuggestNetworkPolicy generates a NetworkPolicy based on observed traffic patterns.

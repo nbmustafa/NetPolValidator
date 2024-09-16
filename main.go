@@ -49,6 +49,16 @@ func main() {
         os.Exit(1)
     }
 
+    policies, err := validator.ListNetworkPolicies(namespace, podLabels)
+    if err != nil {
+        klog.Fatalf("Failed to list network policies: %v", err)
+    }
+
+    klog.Infof("Found %d matching policies in namespace %s", len(policies), namespace)
+    for _, policy := range policies {
+        klog.Infof("NetworkPolicy: %s", policy.Name)
+    }
+
     fmt.Printf(ColorBlue + "Validating traffic for pod %s in namespace %s...\n" + ColorReset, *srcPod, *srcNamespace)
 
     // Perform the validation
