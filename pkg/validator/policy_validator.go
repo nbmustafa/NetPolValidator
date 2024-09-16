@@ -305,8 +305,8 @@ func (p *PolicyValidator) matchPort(ports []v1net.NetworkPolicyPort, port int) b
 
 // isPodMatch checks if a given pod matches the PodSelector in the NetworkPolicy.
 func isPodMatch(pod *v1.Pod, selector metav1.LabelSelector) bool {
-    for key, value := range selector.matchLabels {
-        if pod.labels[key] != value {
+    for key, value := range selector.MatchLabels {
+        if pod.Labels[key] != value {
             return false
         }
     }
