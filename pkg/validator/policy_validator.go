@@ -5,7 +5,6 @@ import (
     "fmt"
     "net"
     "time"
-    "encoding/json"
 
     v1 "k8s.io/api/core/v1"
     v1net "k8s.io/api/networking/v1"
@@ -74,7 +73,7 @@ func (p *PolicyValidator) SuggestNetworkPolicy(namespace, podName string) (*v1ne
             },
         }
 
-        for ipPort, count := range patterns {
+        for ipPort, _ := range patterns {
             parts := strings.Split(ipPort, ":")
             if len(parts) != 2 {
                 continue
