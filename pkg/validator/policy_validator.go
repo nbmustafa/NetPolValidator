@@ -251,7 +251,7 @@ func (p *PolicyValidator) matchIPBlockOrNamespace(peers []v1net.NetworkPolicyPee
 // matchPort checks if the traffic matches the port rules.
 func (p *PolicyValidator) matchPort(ports []v1net.NetworkPolicyPort, port int) bool {
     for _, portRule := range ports {
-        if portRule.Port != nil && int(*portRule.Port.IntVal) == port {
+        if portRule.Port != nil && portRule.Port.IntVal == int32(port) {
             return true
         }
     }
