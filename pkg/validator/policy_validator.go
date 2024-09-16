@@ -145,6 +145,12 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
         return fmt.Errorf("failed to list network policies in namespace %s: %v", srcNamespace, err)
     }
 
+    // Case 1: No NetworkPolicies present, traffic is allowed
+    if len(policies.Items) == 0 {
+        klog.Infof("No NetworkPolicy found for namespace %s, traffic is allowed", srcNamespace)
+        return nil
+    }
+
     var trafficAllowed bool
 
     for _, policy := range policies.Items {
@@ -154,18 +160,32 @@ func (p *PolicyValidator) ValidateTraffic(srcPod, srcNamespace, destIP string, p
             // Validate based on direction
             switch direction {
             case "ingress":
+                // Case 2: If Ingress is empty, allow ingress traffic
+                if len(policy.Spec.Ingress) == 0 {
+                    klog.Infof("NetworkPolicy %s has no ingress rules, ingress traffic is allowed", policy.Name)
+                    return nil
+                }
                 if err := p.checkIngress(policy, srcNamespace, pod, destIP, port); err == nil {
                     trafficAllowed = true
                 } else {
                     klog.Errorf("Ingress traffic denied for pod %s due to: %v", pod.Name, err)
                 }
             case "egress":
+                // Case 3: If Egress is empty, allow egress traffic
+                if len(policy.Spec.Egress) == 0 {
+                    klog.Infof("NetworkPolicy %s has no egress rules, egress traffic is allowed", policy.Name)
+                    return nil
+                }
                 if err := p.checkEgress(policy, destIP, port); err == nil {
                     trafficAllowed = true
                 } else {
                     klog.Errorf("Egress traffic denied for pod %s due to: %v", pod.Name, err)
                 }
             case "both":
+                if len(policy.Spec.Ingress) == 0 && len(policy.Spec.Egress) == 0 {
+                    klog.Infof("NetworkPolicy %s has no ingress or egress rules, all traffic is allowed", policy.Name)
+                    return nil
+                }
                 if err := p.validateEgressAndIngress(policy, srcNamespace, pod, destIP, port); err == nil {
                     trafficAllowed = true
                 } else {
