@@ -45,6 +45,7 @@ func NewPolicyValidator() (*PolicyValidator, error) {
     return &PolicyValidator{
         clientset:       clientset,
         rateLimiter:     limiter,
+        trafficPattern: trafficPattern,
     }, nil
 }
 
