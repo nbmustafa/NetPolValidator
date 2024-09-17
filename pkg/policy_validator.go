@@ -23,7 +23,7 @@ import (
 type PolicyValidator struct {
     clientset       *kubernetes.Clientset
     rateLimiter     *rate.Limiter
-    trafficPatterns make(map[string]map[string]int),
+    trafficPatterns make(map[string]map[string]int)
 }
 
 // NewPolicyValidator initializes a new PolicyValidator instance.
@@ -87,11 +87,6 @@ func (p *PolicyValidator) isPodSelectorMatch(podLabels map[string]string, select
         }
     }
     return true
-}
-
-// cidrForIP generates a CIDR block for a given IP address.
-func cidrForIP(ip string) string {
-    return fmt.Sprintf("%s/32", ip)
 }
 
 // ValidateTraffic checks whether traffic is allowed based on NetworkPolicies.
