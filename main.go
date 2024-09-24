@@ -1,3 +1,4 @@
+
 package main
 
 import (
@@ -13,6 +14,12 @@ import (
     "k8s.io/client-go/kubernetes"
     "k8s.io/client-go/tools/clientcmd"
     "k8s.io/client-go/util/homedir"
+)
+
+const (
+    colorGreen = "\033[32m"
+    colorRed   = "\033[31m"
+    colorReset = "\033[0m"
 )
 
 func main() {
@@ -88,7 +95,7 @@ func checkIngress(ingress networkingv1.NetworkPolicyIngressRule, netpolName, lab
         if from.PodSelector != nil && matchLabelSelector(from.PodSelector, labelSelector) {
             for _, port := range ingress.Ports {
                 if port.Port != nil && port.Port.IntValue() == destPort {
-                    fmt.Printf("    Ingress traffic from pods with label selector '%s' to %s:%d is allowed by NetworkPolicy %s\n", labelSelector, destIP, destPort, netpolName)
+                    fmt.Printf("%s    Ingress traffic from pods with label selector '%s' to %s:%d is allowed by NetworkPolicy %s%s\n", colorGreen, labelSelector, destIP, destPort, netpolName, colorReset)
                 }
             }
         }
@@ -100,7 +107,7 @@ func checkEgress(egress networkingv1.NetworkPolicyEgressRule, netpolName, labelS
         if to.PodSelector != nil && matchLabelSelector(to.PodSelector, labelSelector) {
             for _, port := range egress.Ports {
                 if port.Port != nil && port.Port.IntValue() == destPort {
-                    fmt.Printf("    Egress traffic to pods with label selector '%s' from %s:%d is allowed by NetworkPolicy %s\n", labelSelector, destIP, destPort, netpolName)
+                    fmt.Printf("%s    Egress traffic to pods with label selector '%s' from %s:%d is allowed by NetworkPolicy %s%s\n", colorGreen, labelSelector, destIP, destPort, netpolName, colorReset)
                 }
             }
         }
@@ -108,7 +115,7 @@ func checkEgress(egress networkingv1.NetworkPolicyEgressRule, netpolName, labelS
         if to.IPBlock != nil && cidrContainsIP(to.IPBlock.CIDR, destIP) {
             for _, port := range egress.Ports {
                 if port.Port != nil && port.Port.IntValue() == destPort {
-                    fmt.Printf("    Egress traffic to IPBlock %s (CIDR: %s) on port %d is allowed by NetworkPolicy %s\n", destIP, to.IPBlock.CIDR, destPort, netpolName)
+                    fmt.Printf("%s    Egress traffic to IPBlock %s (CIDR: %s) on port %d is allowed by NetworkPolicy %s%s\n", colorGreen, destIP, to.IPBlock.CIDR, destPort, netpolName, colorReset)
                 }
             }
         }
